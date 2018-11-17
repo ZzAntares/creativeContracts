@@ -1,0 +1,36 @@
+{
+  "name": "creative-contracts",
+  "version": "1.0.0",
+  "description": "JavaScript implementation of the CreativeContracts the blockchain startup for creatives https://www.creativecontracts.org/",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZzAntares/creativeContracts.git"
+  },
+  "keywords": [
+    "creative-contracts",
+    "blockchain"
+  ],
+  "author": "Julio Cesar",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ZzAntares/creativeContracts/issues"
+  },
+  "homepage": "https://github.com/ZzAntares/creativeContracts#readme",
+  "dependencies": {
+    "@iohk/mallet": "^2.1.0",
+    "body-parser": "^1.18.3",
+    "crypto-js": "^3.1.9-1",
+    "express": "^4.16.4",
+    "morgan": "^1.9.1",
+    "nunjucks": "^3.1.4",
+    "puppeteer": "^1.10.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.16.0"
+  }
+}
