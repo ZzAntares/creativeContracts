@@ -1,0 +1,138 @@
+pragma solidity ^0.4.24;
+
+contract CreativeContract {
+
+    // TODO Extract handling due and settlement dates in modifiers
+
+    // Dates (unix timestamp)
+    uint256 settlementTimestamp;
+    uint256 duedateTimestamp;
+    uint256 deliveryTimestamp;
+    // uint256 contractTimestamp; // handled by the blockchain
+
+    uint256 amount;     // Price of the service
+    uint256 oracleFee;  // Amount to be payed to the oracle
+
+    string legalContractUrl;    // URL to the textual contract.
+    bytes32 legalContractHash;  // SHA256 of the textual contract.
+
+    // Parties
+    address business;  // owner
+    address customer;
+    address oracle;
+
+    // ============== INTERNALS
+
+    mapping(address => bool) cancelIntent;  // Track the intent of contract cancelation
+    mapping(address => bool) settleIntent;  // Track the intent of settle the contract
+    mapping(address => bool) rebateIntent;  // Track the intent of contract rebate
+
+    constructor(address _customer,
+                address _oracle,
+                uint256 _amount,
+                uint256 _oracleFee,
+                string _lcUrl,
+                bytes32 _lcHash,
+                uint256 _settlementTs,
+                uint256 _dueTs,
+                uint256 _deliveryTs
+                ) public {
+        // Parties
+        business = msg.sender;  // TODO Validate is not same as business or oracle
+        customer = _customer;   // TODO Validate is not same as business or oracle
+        oracle = _oracle;       // TODO Validate is not the same as business or oracle
+
+        // Amounts
+        amount = _amount;
+        oracleFee = _oracleFee;  // TODO Validate fee is less than amount
+
+        // Textual contract
+        legalContractUrl = _lcUrl;
+        legalContractHash = _lcHash;
+
+        // Dates
+        // TODO Validate duedateTimestamp < settlementTimestamp
+        settlementTimestamp = _settlementTs;
+        duedateTimestamp = _dueTs;
+        deliveryTimestamp = _deliveryTs;
+    }
+
+    // Both customer and business want to cancel the contract
+    function cancel() public returns (bool) {
+        // TODO When a contract can be canceled?
+
+        require(msg.sender == business || msg.sender == customer, "Sender is not involved");
+        cancelIntent[msg.sender] = true;
+
+        if (cancelIntent[business] && cancelIntent[customer]) {
+            selfdestruct(business);
+        }
+    }
+
+    // Business demands the payment
+    function settle() public returns (bool) {
+        require(address(this).balance >= oracleFee, "Need to fund the contract first");
+        require(msg.sender == customer || msg.sender == business, "Sender is not involved");
+        require(block.timestamp > deliveryTimestamp, "Can't unlock funds before contract's delivery date");
+
+        if (msg.sender == business) {
+            settleIntent[business] = true;
+            return false;
+        } else if (msg.sender == oracle) {
+            require(settleIntent[business], "Business doesn't want settle");
+            oracle.transfer(oracleFee);
+            selfdestruct(business);  // TODO Or business.transfer(amount - oracleFee) ?
+            return true;
+        }
+    }
+
+    // Customer demands a refund
+    function rebate() public returns (bool) {
+        require(address(this).balance >= oracleFee, "Need to fund the contract first");
+        require(msg.sender == customer || msg.sender == oracle, "Sender is not involved");
+        require(block.timestamp > deliveryTimestamp, "Can refund only delivered contracts");
+
+        if (msg.sender == customer) {
+            rebateIntent[customer] = true;
+            return false;
+        } else if (msg.sender == oracle) {
+            require(rebateIntent[customer], "Customer doesn't want rebate");
+            oracle.transfer(oracleFee);
+            selfdestruct(customer);  // TODO Or customer.transfer(amount - oracleFee) ?
+            return true;
+        }
+    }
+
+    // Make a deposit to the contract
+    function fund() public payable {
+        // TODO Anyone can fund the contract?
+
+        uint256 balance = address(this).balance;
+        uint256 debt = amount - balance; // TODO Use safe math
+        require(balance < amount, "Contract is already fully paid");
+        require(msg.value <= debt, "Can't over paid the contract");
+
+        if (block.timestamp > duedateTimestamp) {  // Contract is due
+          // call claim()
+        } else {
+            if (balance == 0) { // Is the first payment?
+                require(msg.value >= oracleFee, "Need to cover at least oracle expenses");
+            }
+
+            // Blockchain handles the money
+        }
+    }
+
+    // Business claim contract funds due to contract breach
+    function claim() public returns (bool) {
+        require(msg.sender == business, "Only creator can claim");
+        require(block.timestamp > duedateTimestamp, "Can only claim if contract is due");
+        require(address(this).balance < amount, "Can only claim on breach of contract");
+        selfdestruct(business);
+        return true;
+    }
+
+    function debt() public view returns (uint256) {
+        return amount - address(this).balance;
+    }
+}
